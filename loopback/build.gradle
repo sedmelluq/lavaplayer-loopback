@@ -1,0 +1,35 @@
+plugins {
+  id 'java'
+  id 'com.jfrog.bintray' version '1.7.3'
+}
+
+ext.moduleName = 'lavaplayer-loopback'
+version = '1.0.0'
+
+dependencies {
+  compile 'com.sedmelluq:lavaplayer:1.2.21'
+  compile "org.slf4j:slf4j-api:$slf4jVersion"
+}
+
+compileJava.dependsOn(':loopback-natives:checkNatives')
+
+task sourceJar(type: Jar) {
+  from sourceSets.main.allJava
+}
+
+publishing {
+  publications {
+    mavenJava(MavenPublication) {
+      groupId rootProject.group
+      artifactId moduleName
+
+      from components.java
+
+      artifact sourceJar {
+        classifier "sources"
+      }
+    }
+  }
+}
+
+apply from: "${rootDir}/gradle/bintray.gradle"
