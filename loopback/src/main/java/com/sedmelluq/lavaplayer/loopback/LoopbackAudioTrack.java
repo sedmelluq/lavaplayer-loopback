@@ -51,6 +51,6 @@ public class LoopbackAudioTrack extends BaseAudioTrack {
   }
 
   private static AudioTrackInfo createLoopbackTrackInfo() {
-    return new AudioTrackInfo("Output loopback", "None", Long.MAX_VALUE, "loopback", true);
+    return new AudioTrackInfo("Output loopback", "None", Long.MAX_VALUE, "loopback", true, null);
   }
 }

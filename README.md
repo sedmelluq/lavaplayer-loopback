@@ -5,7 +5,7 @@ This project implements an audio source manager for LavaPlayer which provides a 
 #### Maven package
 
 * Repository: jcenter
-* Artifact: **com.sedmelluq:lavaplayer-loopback:1.0.0**
+* Artifact: **com.sedmelluq:lavaplayer-loopback:1.0.1**
 
 Using in Gradle:
 ```groovy
@@ -14,7 +14,7 @@ repositories {
 }
 
 dependencies {
-  compile 'com.sedmelluq:lavaplayer-loopback:1.0.0'
+  compile 'com.sedmelluq:lavaplayer-loopback:1.0.1'
 }
 ```
 
@@ -32,7 +32,7 @@ Using in Maven:
   <dependency>
     <groupId>com.sedmelluq</groupId>
     <artifactId>lavaplayer-loopback</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
   </dependency>
 </dependencies>
 ```

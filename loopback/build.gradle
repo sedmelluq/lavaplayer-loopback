@@ -4,11 +4,12 @@ plugins {
 }
 
 ext.moduleName = 'lavaplayer-loopback'
-version = '1.0.0'
+version = '1.0.1'
 
 dependencies {
-  compile 'com.sedmelluq:lavaplayer:1.2.21'
   compile "org.slf4j:slf4j-api:$slf4jVersion"
+
+  compileOnly 'com.sedmelluq:lavaplayer:1.2.36'
 }
 
 compileJava.dependsOn(':loopback-natives:checkNatives')
