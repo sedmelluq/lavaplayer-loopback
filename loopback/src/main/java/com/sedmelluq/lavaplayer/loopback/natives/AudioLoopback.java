@@ -1,6 +1,7 @@
 package com.sedmelluq.lavaplayer.loopback.natives;
 
 import com.sedmelluq.discord.lavaplayer.natives.NativeResourceHolder;
+import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,6 +13,7 @@ public class AudioLoopback extends NativeResourceHolder {
   private static final Logger log = LoggerFactory.getLogger(AudioLoopback.class);
 
   private static final long INVALIDATED_ERROR = Long.parseUnsignedLong("8000001388890004", 16);
+  private static final long NO_DEVICE_MATCH_ERROR = Long.parseUnsignedLong("8000001900000000", 16);
 
   private final AudioLoopbackLibrary library;
   private final long instance;
@@ -21,11 +23,13 @@ public class AudioLoopback extends NativeResourceHolder {
     instance = library.create();
   }
 
-  public Format initialise() {
+  public Format initialise(String deviceName) {
     ByteBuffer formatBuffer = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder());
 
-    long result = library.initialise(instance, formatBuffer);
-    if (result < 0) {
+    long result = library.initialise(instance, formatBuffer, deviceName);
+    if (result == NO_DEVICE_MATCH_ERROR) {
+      throw new FriendlyException("Audio device not found: " + deviceName, FriendlyException.Severity.COMMON, null);
+    } else if (result < 0) {
       throw new IllegalStateException("Initialising loopback failed with error " + result);
     }
 

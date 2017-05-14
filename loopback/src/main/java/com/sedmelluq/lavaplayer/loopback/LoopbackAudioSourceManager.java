@@ -20,7 +20,10 @@ public class LoopbackAudioSourceManager implements AudioSourceManager {
   @Override
   public AudioItem loadItem(DefaultAudioPlayerManager manager, AudioReference reference) {
     if ("loopback".equals(reference.identifier)) {
-      return new LoopbackAudioTrack(this);
+      return new LoopbackAudioTrack(this, null);
+    } else if (reference.identifier.startsWith("loopback:")) {
+      String deviceName = reference.identifier.substring("loopback:".length()).trim();
+      return new LoopbackAudioTrack(this, deviceName);
     }
 
     return null;

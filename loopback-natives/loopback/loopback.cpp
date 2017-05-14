@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <jni.h>
 #include <stdint.h>
+#include <Functiondiscoverykeys_devpkey.h>
 
 #define REFTIMES_PER_SEC  10000000
 #define REFTIMES_PER_MILLISEC  10000
@@ -34,7 +35,13 @@ enum loopback_error_e {
 	error_invalid_buffer_capacity,
 	error_invalid_block_align,
 	error_invalid_buffer_size,
-	error_capture_buffer
+	error_capture_buffer,
+	error_enumerate_devices,
+	error_enumerate_count,
+	error_enumerate_item,
+	error_enumerate_property,
+	error_enumerate_name,
+	error_no_match
 };
 
 struct loopback_state_t {
@@ -119,22 +126,100 @@ static int64_t loopback_com_initialise(loopback_state_t* state) {
 	return 0;
 }
 
-static int64_t loopback_device_initialise(loopback_state_t* state) {
-	IMMDeviceEnumerator *enumerator = NULL;
+static int64_t loopback_device_match(IMMDevice* device, const wchar_t* device_name, bool* matched) {
+	IPropertyStore* properties;
+	HRESULT result = device->OpenPropertyStore(STGM_READ, &properties);
+
+	if (FAILED(result)) {
+		return loopback_com_error(error_enumerate_property, result);
+	}
+
+	PROPVARIANT name_field;
+	PropVariantInit(&name_field);
+
+	result = properties->GetValue(PKEY_Device_FriendlyName, &name_field);
+	loopback_release_entity((IUnknown**) &properties);
+
+	if (FAILED(result)) {
+		return loopback_com_error(error_enumerate_name, result);
+	}
+
+	*matched = wcscmp(device_name, name_field.pwszVal) == 0;
+	PropVariantClear(&name_field);
+
+	return error_none;
+}
+
+static int64_t loopback_device_find_in_collection(IMMDeviceCollection* collection, const wchar_t* device_name, IMMDevice** device_out) {
+	uint32_t count;
+	HRESULT result = collection->GetCount(&count);
+
+	if (FAILED(result)) {
+		return loopback_com_error(error_enumerate_count, result);
+	}
+
+	for (uint32_t index = 0; index < count; index++) {
+		IMMDevice* device;
+		result = collection->Item(0, &device);
+
+		if (FAILED(result)) {
+			return loopback_com_error(error_enumerate_item, result);
+		}
+
+		bool matched = false;
+		int64_t error = loopback_device_match(device, device_name, &matched);
+
+		if (error == 0 && matched) {
+			*device_out = device;
+			return error_none;
+		}
+
+		loopback_release_entity((IUnknown**) &device);
+
+		if (error != 0) {
+			return error;
+		}
+	}
+
+	return loopback_error(error_no_match);
+}
+
+static int64_t loopback_device_find(IMMDeviceEnumerator* enumerator, const wchar_t* device_name, IMMDevice** device_out) {
+	IMMDeviceCollection* collection = NULL;
+	HRESULT result = enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &collection);
+
+	if (FAILED(result)) {
+		return loopback_com_error(error_enumerate_devices, result);
+	}
+
+	int64_t error = loopback_device_find_in_collection(collection, device_name, device_out);
+	loopback_release_entity((IUnknown**) &collection);
+
+	return error;
+}
+
+static int64_t loopback_device_initialise(loopback_state_t* state, const wchar_t* device_name) {
+	IMMDeviceEnumerator* enumerator = NULL;
 	HRESULT result = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**) &enumerator);
+	int64_t error = 0;
 
 	if (FAILED(result)) {
 		return loopback_com_error(error_acquire_enumerator, result);
 	}
 
-	result = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &state->device);
-	loopback_release_entity((IUnknown**) &enumerator);
+	if (device_name == NULL) {
+		result = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &state->device);
 
-	if (FAILED(result)) {
-		return loopback_com_error(error_acquire_device, result);
+		if (FAILED(result)) {
+			error = loopback_com_error(error_acquire_device, result);
+		}
+	}
+	else {
+		error = loopback_device_find(enumerator, device_name, &state->device);
 	}
 
-	return 0;
+	loopback_release_entity((IUnknown**) &enumerator);
+	return error;
 }
 
 static int64_t loopback_verify_known_format(loopback_state_t* state) {
@@ -193,7 +278,7 @@ static int64_t loopback_capture_initialise(loopback_state_t* state) {
 	return 0;
 }
 
-static int64_t loopback_initialise(loopback_state_t* state, output_info_t* output_info) {
+static int64_t loopback_initialise(loopback_state_t* state, output_info_t* output_info, const wchar_t* device_name) {
 	if (state == NULL) {
 		return loopback_error(error_null);
 	}
@@ -206,7 +291,7 @@ static int64_t loopback_initialise(loopback_state_t* state, output_info_t* outpu
 	int64_t error = 0;
 
 	if ((error = loopback_com_initialise(state)) != 0 ||
-		(error = loopback_device_initialise(state)) != 0 ||
+		(error = loopback_device_initialise(state, device_name)) != 0 ||
 		(error = loopback_client_initialise(state)) != 0 ||
 		(error = loopback_capture_initialise(state)) != 0) {
 
@@ -287,7 +372,13 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_sedmelluq_lavaplayer_loopback_native
 	return (jlong) loopback_create();
 }
 
-extern "C" JNIEXPORT jlong JNICALL Java_com_sedmelluq_lavaplayer_loopback_natives_AudioLoopbackLibrary_initialise(JNIEnv* jni, jobject me, jlong instance, jobject format_buffer) {
+extern "C" JNIEXPORT jlong JNICALL Java_com_sedmelluq_lavaplayer_loopback_natives_AudioLoopbackLibrary_initialise(JNIEnv* jni, jobject me, jlong instance, jobject format_buffer, jstring name_string) {
+	const jchar* device_name = NULL;
+
+	if (name_string != NULL) {
+		device_name = jni->GetStringChars(name_string, NULL);
+	}
+
 	if (jni->GetDirectBufferCapacity(format_buffer) < sizeof(output_info_t)) {
 		return loopback_error(error_invalid_buffer_capacity);
 	}
@@ -298,7 +389,13 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_sedmelluq_lavaplayer_loopback_native
 		return loopback_error(error_invalid_buffer);
 	}
 
-	return (jlong) loopback_initialise((loopback_state_t*) instance, format);
+	jlong result = (jlong) loopback_initialise((loopback_state_t*) instance, format, (const wchar_t*) device_name);
+
+	if (device_name != NULL) {
+		jni->ReleaseStringChars(name_string, device_name);
+	}
+
+	return result;
 }
 
 extern "C" JNIEXPORT jlong JNICALL Java_com_sedmelluq_lavaplayer_loopback_natives_AudioLoopbackLibrary_read(JNIEnv* jni, jobject me, jlong instance, jobject s16le_buffer, jint capacity) {

@@ -17,7 +17,7 @@ class AudioLoopbackLibrary {
 
   native long create();
 
-  native long initialise(long instance, ByteBuffer formatDirectBuffer);
+  native long initialise(long instance, ByteBuffer formatDirectBuffer, String deviceName);
 
   native long read(long instance, ShortBuffer sampleDirectBuffer, int capacity);
 
