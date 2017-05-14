@@ -160,7 +160,7 @@ static int64_t loopback_device_find_in_collection(IMMDeviceCollection* collectio
 
 	for (uint32_t index = 0; index < count; index++) {
 		IMMDevice* device;
-		result = collection->Item(0, &device);
+		result = collection->Item(index, &device);
 
 		if (FAILED(result)) {
 			return loopback_com_error(error_enumerate_item, result);
@@ -169,7 +169,7 @@ static int64_t loopback_device_find_in_collection(IMMDeviceCollection* collectio
 		bool matched = false;
 		int64_t error = loopback_device_match(device, device_name, &matched);
 
-		if (error == 0 && matched) {
+		if (error == error_none && matched) {
 			*device_out = device;
 			return error_none;
 		}
