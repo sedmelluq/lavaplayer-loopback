@@ -375,10 +375,6 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_sedmelluq_lavaplayer_loopback_native
 extern "C" JNIEXPORT jlong JNICALL Java_com_sedmelluq_lavaplayer_loopback_natives_AudioLoopbackLibrary_initialise(JNIEnv* jni, jobject me, jlong instance, jobject format_buffer, jstring name_string) {
 	const jchar* device_name = NULL;
 
-	if (name_string != NULL) {
-		device_name = jni->GetStringChars(name_string, NULL);
-	}
-
 	if (jni->GetDirectBufferCapacity(format_buffer) < sizeof(output_info_t)) {
 		return loopback_error(error_invalid_buffer_capacity);
 	}
@@ -387,6 +383,10 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_sedmelluq_lavaplayer_loopback_native
 
 	if (format == NULL) {
 		return loopback_error(error_invalid_buffer);
+	}
+
+	if (name_string != NULL) {
+		device_name = jni->GetStringChars(name_string, NULL);
 	}
 
 	jlong result = (jlong) loopback_initialise((loopback_state_t*) instance, format, (const wchar_t*) device_name);
